@@ -2,6 +2,7 @@ import streamlit as st
 import datetime
 from geopy.geocoders import Nominatim
 import pandas as pd
+import requests
 
 '''
 # TaxiFareModel front
@@ -21,7 +22,7 @@ Either as with the title by just creating a string (or an f-string). Or as with 
 '''
 d = st.date_input(
     "When do you want to visit Louvre? (yyyy/mm/dd)",
-    datetime.date(2019, 7, 6))
+    datetime.date(2025, 11, 15))
 st.write('Visit scheduled to:', d)
 
 t = st.time_input('Which time do you want to be picked up', datetime.time(8, 45))
@@ -44,6 +45,7 @@ def get_lat_lon_p(p_address):
 
 p_address = st.text_input("Enter an pickup address or location:")
 
+'''
 if st.button("Get Pickup Coordinates"):
     if p_address.strip():
         p_lat, p_lon = get_lat_lon_p(p_address)
@@ -56,7 +58,8 @@ if st.button("Get Pickup Coordinates"):
             st.error("Could not find coordinates.")
     else:
         st.warning("Please enter a valid address.")
-
+'''
+p_lat, p_lon = get_lat_lon_p(p_address)
 '''
 - Dropoff address:
 '''
@@ -71,8 +74,10 @@ def get_lat_lon_d(d_address):
 
 # st.title("Address → Coordinates")
 
-d_address = st.text_input("Enter an dropoff address or location:")
+d_address = st.text_input("Enter dropoff address:")
 
+
+'''
 if st.button("Get Dropoff Coordinates"):
     if d_address.strip():
         d_lat, d_lon = get_lat_lon_d(d_address)
@@ -85,7 +90,8 @@ if st.button("Get Dropoff Coordinates"):
             st.error("Could not find coordinates.")
     else:
         st.warning("Please enter a valid address.")
-
+'''
+d_lat, d_lon = get_lat_lon_d(d_address)
 '''
 - passenger count
 '''
@@ -100,11 +106,55 @@ See ? No need to load a `model.joblib` file in this app, we do not even need to 
 🤔 How could we call our API ? Off course... The `requests` package 💡
 '''
 
-url = 'https://taxifare.lewagon.ai/predict'
+# enviar = st.button('Price prediction')
 
-if url == 'https://taxifare.lewagon.ai/predict':
+#url = 'https://taxifare.lewagon.ai/predict'
 
-    st.markdown('Maybe you want to use your own API for the prediction, not the one provided by Le Wagon...')
+if st.button('Price prediction'):
+
+    #st.markdown('Maybe you want to use your own API for the prediction, not the one provided by Le Wagon...')
+    #if enviar:
+
+    # junta data e hora em um datetime único (formato padrão usado em APIs de ML)
+    # datetime_trip = datetime.combine(d.date(), t.time())
+    datetime_trip = f'{d} {t}'
+
+    # monta o payload conforme a API espera
+    payload = {
+        "pickup_datetime": datetime_trip,
+        "pickup_latitude": p_lat,
+        "pickup_longitude": p_lon,
+        "dropoff_latitude": d_lat,
+        "dropoff_longitude": d_lon,
+        "passenger_count": passengers
+    }
+
+    st.write("📦 *Payload enviado para a API:*")
+    st.json(payload)
+
+    # URL da API
+    url = 'https://taxifare.lewagon.ai/predict'
+
+    try:
+        response = requests.get(url, params=payload)
+
+        if response.status_code == 200:
+            resultado = response.json()
+            preco = resultado.get("fare", None)
+
+            if preco is not None:
+                st.success(f"💰 Preço estimado: **US$ {preco:.2f}**")
+            else:
+                st.error("A API respondeu, mas não retornou o campo 'prediction'.")
+                st.json(resultado)
+
+        else:
+            st.error(f"Erro ao chamar a API: Status {response.status_code}")
+            st.write(response.text)
+
+    except Exception as e:
+        st.error("❌ Erro de conexão com a API.")
+        st.write(e)
 
 '''
 
